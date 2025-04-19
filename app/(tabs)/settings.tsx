@@ -23,7 +23,7 @@ import {
   Trash2,
   ChevronRight,
 } from 'lucide-react-native';
-import { colors } from '@/constants/colors';
+import { colors } from '@/constants/Colors';
 import { Card } from '@/components/Card';
 import { useClientStore } from '@/store/clientStore';
 import { useOpportunityStore } from '@/store/opportunityStore';

@@ -19,7 +19,7 @@ import {
   Phone, 
   MessageCircle,
 } from 'lucide-react-native';
-import { colors } from '@/constants/colors';
+import { colors } from '@/constants/Colors';
 import { Card } from '@/components/Card';
 import { ClientCard } from '@/components/ClientCard';
 import { OpportunityCard } from '@/components/OpportunityCard';

@@ -1,26 +1,29 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
+// App color scheme
+export const colors = {
+  primary: '#3366FF',
+  primaryLight: '#D6E4FF',
+  secondary: '#FF9500',
+  secondaryLight: '#FFE8CC',
+  success: '#00C48C',
+  warning: '#FFCC00',
+  danger: '#FF3B30',
+  dark: '#1A1A1A',
+  grey: '#8F8F8F',
+  lightGrey: '#E5E5E5',
+  background: '#F8F9FA',
+  white: '#FFFFFF',
+  text: '#333333',
+  textLight: '#666666',
+  border: '#E1E1E1',
+};
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
-export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+// Status colors for pipeline stages
+export const statusColors = {
+  lead: '#9747FF',
+  prospect: '#3366FF',
+  qualified: '#00C48C',
+  proposal: '#FFCC00',
+  negotiation: '#FF9500',
+  closed: '#00C48C',
+  lost: '#FF3B30',
 };

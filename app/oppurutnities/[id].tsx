@@ -10,51 +10,51 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { 
-  Phone, 
-  Mail, 
-  MessageCircle, 
   Edit, 
   Trash2, 
   Plus, 
-  BarChart3, 
-  Clock,
-  Calendar,
+  DollarSign, 
+  Calendar, 
+  BarChart, 
+  User,
+  Phone,
+  MessageCircle,
+  Mail,
 } from 'lucide-react-native';
 import { colors } from '@/constants/Colors';
-import { Avatar } from '@/components/Avatar';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
-import { OpportunityCard } from '@/components/OpportunityCard';
 import { InteractionItem } from '@/components/InteractionItem';
 import { TaskItem } from '@/components/TaskItem';
+import { StageIndicator } from '@/components/StageIndicator';
 import { CallScreen } from '@/components/CallScreen';
-import { useClientStore } from '@/store/clientStore';
 import { useOpportunityStore } from '@/store/opportunityStore';
+import { useClientStore } from '@/store/clientStore';
 import { useInteractionStore } from '@/store/interactionStore';
 import { useTaskStore } from '@/store/taskStore';
-import { makePhoneCall, sendWhatsAppMessage, sendEmail } from '@/utils/helpers';
+import { formatCurrency, formatDate, makePhoneCall, sendWhatsAppMessage, sendEmail } from '@/utils/helpers';
 import { Client, Interaction, Opportunity, Task } from '@/types';
 
-export default function ClientDetailScreen() {
+export default function OpportunityDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   
+  const getOpportunity = useOpportunityStore(state => state.getOpportunity);
+  const deleteOpportunity = useOpportunityStore(state => state.deleteOpportunity);
   const getClient = useClientStore(state => state.getClient);
-  const deleteClient = useClientStore(state => state.deleteClient);
-  const getOpportunitiesByClient = useOpportunityStore(state => state.getOpportunitiesByClient);
-  const getInteractionsByClient = useInteractionStore(state => state.getInteractionsByClient);
+  const getInteractionsByOpportunity = useInteractionStore(state => state.getInteractionsByOpportunity);
   const addInteraction = useInteractionStore(state => state.addInteraction);
-  const getTasksByClient = useTaskStore(state => state.getTasksByClient);
+  const getTasksByOpportunity = useTaskStore(state => state.getTasksByOpportunity);
   const toggleTaskCompletion = useTaskStore(state => state.toggleTaskCompletion);
   
-  const [client, setClient] = useState<Client | null>(getClient(id as string) ?? null);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [opportunity, setOpportunity] = useState<Opportunity | null>(getOpportunity(id as string) ?? null);
+  const [client, setClient] = useState<Client | null>(null);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCallScreen, setShowCallScreen] = useState(false);
   
   useEffect(() => {
-    if (!client) {
+    if (!opportunity) {
       router.back();
       return;
     }
@@ -63,20 +63,25 @@ export default function ClientDetailScreen() {
   }, [id]);
   
   const loadData = () => {
-    setClient(getClient(id as string) ?? null);
-    setOpportunities(getOpportunitiesByClient(id as string));
-    setInteractions(getInteractionsByClient(id as string).slice(0, 5));
-    setTasks(getTasksByClient(id as string));
+    const opportunityData = getOpportunity(id as string);
+    setOpportunity(opportunityData ?? null);
+    
+    if (opportunityData) {
+      const clientData = getClient(opportunityData.clientId);
+      setClient(clientData ?? null);
+      setInteractions(getInteractionsByOpportunity(id as string));
+      setTasks(getTasksByOpportunity(id as string));
+    }
   };
   
-  const handleEditClient = () => {
-    router.push(`/clients/edit/${id}`);
+  const handleEditOpportunity = () => {
+    router.push(`/opportunities/edit/${id}`);
   };
   
-  const handleDeleteClient = () => {
+  const handleDeleteOpportunity = () => {
     Alert.alert(
-      'Delete Client',
-      'Are you sure you want to delete this client? This action cannot be undone.',
+      'Delete Opportunity',
+      'Are you sure you want to delete this opportunity? This action cannot be undone.',
       [
         {
           text: 'Cancel',
@@ -86,7 +91,7 @@ export default function ClientDetailScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            deleteClient(id as string);
+            deleteOpportunity(id as string);
             router.back();
           },
         },
@@ -94,8 +99,16 @@ export default function ClientDetailScreen() {
     );
   };
   
+  const handleClientPress = () => {
+    if (client) {
+      router.push(`/clients/${client.id}`);
+    }
+  };
+  
   const handleCall = () => {
-    setShowCallScreen(true);
+    if (client) {
+      setShowCallScreen(true);
+    }
   };
   
   const handleEmail = () => {
@@ -110,29 +123,18 @@ export default function ClientDetailScreen() {
     }
   };
   
-  const handleAddOpportunity = () => {
-    router.push({
-      pathname: '/opportunities/add',
-      params: { clientId: id },
-    });
-  };
-  
   const handleAddInteraction = (type: string) => {
     router.push({
       pathname: '/interactions/add',
-      params: { clientId: id, type },
+      params: { clientId: client?.id, opportunityId: id, type },
     });
   };
   
   const handleAddTask = () => {
     router.push({
       pathname: '/tasks/add',
-      params: { clientId: id },
+      params: { clientId: client?.id, opportunityId: id },
     });
-  };
-  
-  const handleOpportunityPress = (opportunity: Opportunity) => {
-    router.push(`/opportunities/${opportunity.id}`);
   };
   
   const handleInteractionPress = (interaction: Interaction) => {
@@ -144,120 +146,83 @@ export default function ClientDetailScreen() {
   };
   
   const handleCallComplete = (interaction: Omit<Interaction, 'id'>) => {
-    addInteraction(interaction);
+    const interactionWithOpportunity = {
+      ...interaction,
+      opportunityId: id as string,
+    };
+    addInteraction(interactionWithOpportunity);
     loadData();
   };
   
-  if (!client) {
+  if (!opportunity || !client) {
     return null;
   }
   
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <Avatar
-            firstName={client.firstName}
-            lastName={client.lastName}
-            imageUrl={client.avatar}
-            size={80}
-          />
-        </View>
-        
-        <Text style={styles.name}>{`${client.firstName} ${client.lastName}`}</Text>
-        <Text style={styles.company}>{client.company}</Text>
-        <Text style={styles.position}>{client.position}</Text>
-        
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>
-            {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
-          </Text>
-        </View>
-        
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
-            <Phone size={24} color={colors.primary} />
-            <Text style={styles.actionText}>Call</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton} onPress={handleEmail}>
-            <Mail size={24} color={colors.primary} />
-            <Text style={styles.actionText}>Email</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton} onPress={handleMessage}>
-            <MessageCircle size={24} color={colors.primary} />
-            <Text style={styles.actionText}>Message</Text>
-          </TouchableOpacity>
+        <Text style={styles.title}>{opportunity.title}</Text>
+        <View style={styles.valueContainer}>
+          <DollarSign size={20} color={colors.primary} />
+          <Text style={styles.value}>{formatCurrency(opportunity.value)}</Text>
         </View>
       </View>
+      
+      <StageIndicator currentStage={opportunity.stage} />
       
       <View style={styles.section}>
         <Card variant="outlined" style={styles.card}>
-          <View style={styles.contactInfo}>
-            <Text style={styles.contactLabel}>Email</Text>
-            <Text style={styles.contactValue}>{client.email}</Text>
-          </View>
-          
-          <View style={styles.contactInfo}>
-            <Text style={styles.contactLabel}>Phone</Text>
-            <Text style={styles.contactValue}>{client.phone}</Text>
-          </View>
-          
-          {client.address && (
-            <View style={styles.contactInfo}>
-              <Text style={styles.contactLabel}>Address</Text>
-              <Text style={styles.contactValue}>{client.address}</Text>
+          <TouchableOpacity style={styles.clientContainer} onPress={handleClientPress}>
+            <View style={styles.clientInfo}>
+              <Text style={styles.clientLabel}>Client</Text>
+              <Text style={styles.clientName}>{`${client.firstName} ${client.lastName}`}</Text>
+              <Text style={styles.clientCompany}>{client.company}</Text>
             </View>
-          )}
+            <View style={styles.clientActions}>
+              <TouchableOpacity style={styles.clientAction} onPress={handleCall}>
+                <Phone size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.clientAction} onPress={handleMessage}>
+                <MessageCircle size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.clientAction} onPress={handleEmail}>
+                <Mail size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+          
+          <View style={styles.detailsContainer}>
+            {opportunity.probability !== undefined && (
+              <View style={styles.detailItem}>
+                <BarChart size={20} color={colors.textLight} />
+                <Text style={styles.detailLabel}>Probability:</Text>
+                <Text style={styles.detailValue}>{opportunity.probability}%</Text>
+              </View>
+            )}
+            
+            {opportunity.expectedCloseDate && (
+              <View style={styles.detailItem}>
+                <Calendar size={20} color={colors.textLight} />
+                <Text style={styles.detailLabel}>Expected Close:</Text>
+                <Text style={styles.detailValue}>{formatDate(opportunity.expectedCloseDate)}</Text>
+              </View>
+            )}
+          </View>
         </Card>
       </View>
       
-      {client.notes && (
+      {opportunity.notes && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Notes</Text>
           <Card variant="outlined" style={styles.card}>
-            <Text style={styles.notes}>{client.notes}</Text>
+            <Text style={styles.notes}>{opportunity.notes}</Text>
           </Card>
         </View>
       )}
       
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Opportunities</Text>
-          <TouchableOpacity onPress={handleAddOpportunity}>
-            <Plus size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-        
-        {opportunities.length > 0 ? (
-          opportunities.map(opportunity => (
-            <OpportunityCard
-              key={opportunity.id}
-              opportunity={opportunity}
-              onPress={handleOpportunityPress}
-            />
-          ))
-        ) : (
-          <Card variant="outlined" style={styles.emptyCard}>
-            <View style={styles.emptyState}>
-              <BarChart3 size={32} color={colors.grey} />
-              <Text style={styles.emptyText}>No opportunities yet</Text>
-              <Button
-                title="Add Opportunity"
-                onPress={handleAddOpportunity}
-                variant="outline"
-                size="small"
-                style={styles.emptyButton}
-              />
-            </View>
-          </Card>
-        )}
-      </View>
-      
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <Text style={styles.sectionTitle}>Activity</Text>
           <View style={styles.interactionButtons}>
             <TouchableOpacity 
               style={styles.interactionButton}
@@ -283,28 +248,17 @@ export default function ClientDetailScreen() {
         </View>
         
         {interactions.length > 0 ? (
-          <>
-            {interactions.map(interaction => (
-              <InteractionItem
-                key={interaction.id}
-                interaction={interaction}
-                onPress={handleInteractionPress}
-              />
-            ))}
-            
-            {interactions.length < getInteractionsByClient(id as string).length && (
-              <TouchableOpacity 
-                style={styles.viewAllButton}
-                onPress={() => setInteractions(getInteractionsByClient(id as string))}
-              >
-                <Text style={styles.viewAllText}>View All Activity</Text>
-              </TouchableOpacity>
-            )}
-          </>
+          interactions.map(interaction => (
+            <InteractionItem
+              key={interaction.id}
+              interaction={interaction}
+              onPress={handleInteractionPress}
+            />
+          ))
         ) : (
           <Card variant="outlined" style={styles.emptyCard}>
             <View style={styles.emptyState}>
-              <Clock size={32} color={colors.grey} />
+              <Calendar size={32} color={colors.grey} />
               <Text style={styles.emptyText}>No activity recorded yet</Text>
               <Button
                 title="Add Interaction"
@@ -354,27 +308,29 @@ export default function ClientDetailScreen() {
       
       <View style={styles.footer}>
         <Button
-          title="Edit Client"
-          onPress={handleEditClient}
+          title="Edit Opportunity"
+          onPress={handleEditOpportunity}
           variant="outline"
           icon={<Edit size={16} color={colors.primary} />}
           style={styles.footerButton}
         />
         <Button
-          title="Delete Client"
-          onPress={handleDeleteClient}
+          title="Delete Opportunity"
+          onPress={handleDeleteOpportunity}
           variant="danger"
           icon={<Trash2 size={16} color={colors.white} />}
           style={styles.footerButton}
         />
       </View>
       
-      <CallScreen
-        client={client}
-        visible={showCallScreen}
-        onClose={() => setShowCallScreen(false)}
-        onCallComplete={handleCallComplete}
-      />
+      {client && (
+        <CallScreen
+          client={client}
+          visible={showCallScreen}
+          onClose={() => setShowCallScreen(false)}
+          onCallComplete={handleCallComplete}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -387,55 +343,24 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.white,
     padding: 24,
-    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  avatarContainer: {
-    marginBottom: 16,
-  },
-  name: {
+  title: {
     fontSize: 24,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  company: {
-    fontSize: 18,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  position: {
-    fontSize: 16,
-    color: colors.textLight,
-    marginBottom: 12,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  statusText: {
-    color: colors.white,
-    fontWeight: '500',
-  },
-  actions: {
+  valueContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  actionButton: {
     alignItems: 'center',
   },
-  actionText: {
-    marginTop: 4,
+  value: {
+    fontSize: 20,
+    fontWeight: '600',
     color: colors.primary,
-    fontWeight: '500',
+    marginLeft: 4,
   },
   section: {
     marginBottom: 24,
@@ -457,16 +382,60 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
   },
-  contactInfo: {
-    marginBottom: 12,
+  clientContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  contactLabel: {
+  clientInfo: {
+    flex: 1,
+  },
+  clientLabel: {
     fontSize: 14,
     color: colors.textLight,
     marginBottom: 2,
   },
-  contactValue: {
+  clientName: {
     fontSize: 16,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  clientCompany: {
+    fontSize: 14,
+    color: colors.textLight,
+  },
+  clientActions: {
+    flexDirection: 'row',
+  },
+  clientAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  detailsContainer: {
+    marginTop: 16,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginLeft: 8,
+    marginRight: 4,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '500',
     color: colors.text,
   },
   notes: {
@@ -500,15 +469,6 @@ const styles = StyleSheet.create({
   },
   emptyButton: {
     marginTop: 8,
-  },
-  viewAllButton: {
-    alignItems: 'center',
-    padding: 12,
-    marginTop: 8,
-  },
-  viewAllText: {
-    color: colors.primary,
-    fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',

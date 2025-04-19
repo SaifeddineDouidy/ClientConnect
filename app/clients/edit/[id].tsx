@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ClientForm } from '@/components/forms/ClientForm';
 import { useClientStore } from '@/store/clientStore';
-import { colors } from '@/constants/colors';
+import { colors } from '@/constants/Colors';
 import { Client } from '@/types';
 
 export default function EditClientScreen() {

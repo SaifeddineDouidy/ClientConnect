@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus, Users, Filter } from 'lucide-react-native';
-import { colors } from '@/constants/colors';
+import { colors } from '@/constants/Colors';
 import { ClientCard } from '@/components/ClientCard';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterChip } from '@/components/FilterChip';

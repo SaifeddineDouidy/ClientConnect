@@ -1,21 +1,33 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect } from "react";
+import { Platform } from "react-native";
+import { ErrorBoundary } from "./error-boundary";
+import { StatusBar } from "expo-status-bar";
+import { colors } from "@/constants/Colors";
+import React from "react";
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+export const unstable_settings = {
+  // Ensure that reloading on `/modal` keeps a back button present.
+  initialRouteName: "(tabs)",
+};
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+  const [loaded, error] = useFonts({
+    ...FontAwesome.font,
   });
+
+  useEffect(() => {
+    if (error) {
+      console.error(error);
+      throw error;
+    }
+  }, [error]);
 
   useEffect(() => {
     if (loaded) {
@@ -28,12 +40,108 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <ErrorBoundary>
+      <StatusBar style="dark" />
+      <RootLayoutNav />
+    </ErrorBoundary>
+  );
+}
+
+function RootLayoutNav() {
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.white,
+        },
+        headerTintColor: colors.primary,
+        headerTitleStyle: {
+          fontWeight: '600',
+        },
+        contentStyle: {
+          backgroundColor: colors.background,
+        },
+      }}
+    >
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      
+      {/* Client Screens */}
+      <Stack.Screen 
+        name="clients/[id]" 
+        options={{ 
+          title: "Client Details",
+          animation: 'slide_from_right',
+        }} 
+      />
+      <Stack.Screen 
+        name="clients/add" 
+        options={{ 
+          title: "Add Client",
+          presentation: 'modal',
+        }} 
+      />
+      <Stack.Screen 
+        name="clients/edit/[id]" 
+        options={{ 
+          title: "Edit Client",
+          presentation: 'modal',
+        }} 
+      />
+      
+      {/* Opportunity Screens */}
+      <Stack.Screen 
+        name="opportunities/[id]" 
+        options={{ 
+          title: "Opportunity Details",
+          animation: 'slide_from_right',
+        }} 
+      />
+      <Stack.Screen 
+        name="opportunities/add" 
+        options={{ 
+          title: "Add Opportunity",
+          presentation: 'modal',
+        }} 
+      />
+      <Stack.Screen 
+        name="opportunities/edit/[id]" 
+        options={{ 
+          title: "Edit Opportunity",
+          presentation: 'modal',
+        }} 
+      />
+      
+      {/* Interaction Screens */}
+      <Stack.Screen 
+        name="interactions/add" 
+        options={{ 
+          title: "Add Interaction",
+          presentation: 'modal',
+        }} 
+      />
+      <Stack.Screen 
+        name="interactions/[id]" 
+        options={{ 
+          title: "Interaction Details",
+          animation: 'slide_from_right',
+        }} 
+      />
+      
+      {/* Task Screens */}
+      <Stack.Screen 
+        name="tasks/add" 
+        options={{ 
+          title: "Add Task",
+          presentation: 'modal',
+        }} 
+      />
+      <Stack.Screen 
+        name="tasks/[id]" 
+        options={{ 
+          title: "Task Details",
+          animation: 'slide_from_right',
+        }} 
+      />
+    </Stack>
   );
 }

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus, BarChart3, Filter, DollarSign } from 'lucide-react-native';
-import { colors, statusColors } from '@/constants/colors';
+import { colors, statusColors } from '@/constants/Colors';
 import { OpportunityCard } from '@/components/OpportunityCard';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterChip } from '@/components/FilterChip';

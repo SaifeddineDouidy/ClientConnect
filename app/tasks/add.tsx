@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ClientForm } from '@/components/forms/ClientForm';
-import { useClientStore } from '@/store/clientStore';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { TaskForm } from '@/components/forms/TaskForm';
+import { useTaskStore } from '@/store/taskStore';
 import { colors } from '@/constants/Colors';
-import { Client } from '@/types';
+import { Task } from '@/types';
 
-export default function AddClientScreen() {
+export default function AddTaskScreen() {
   const router = useRouter();
-  const addClient = useClientStore(state => state.addClient);
+  const { clientId, opportunityId } = useLocalSearchParams();
+  const addTask = useTaskStore(state => state.addTask);
   const [isLoading, setIsLoading] = useState(false);
   
-  const handleSubmit = (values: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSubmit = (values: Omit<Task, 'id' | 'createdAt'>) => {
     setIsLoading(true);
     
     try {
-      const clientId = addClient(values);
-      router.push(`/clients/${clientId}`);
+      addTask(values);
+      router.back();
     } catch (error) {
-      console.error('Error adding client:', error);
+      console.error('Error adding task:', error);
     } finally {
       setIsLoading(false);
     }
@@ -30,10 +31,12 @@ export default function AddClientScreen() {
   
   return (
     <View style={styles.container}>
-      <ClientForm
+      <TaskForm
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         isLoading={isLoading}
+        preselectedClientId={clientId as string}
+        preselectedOpportunityId={opportunityId as string}
       />
     </View>
   );
