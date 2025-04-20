@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -52,30 +52,29 @@ export default function OpportunityDetailScreen() {
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCallScreen, setShowCallScreen] = useState(false);
-  
-  useEffect(() => {
-    if (!opportunity) {
-      router.back();
-      return;
-    }
-    
-    loadData();
-  }, [id]);
-  
-  const loadData = () => {
+
+  const loadAllData = useCallback(() => {
     const opportunityData = getOpportunity(id as string);
     setOpportunity(opportunityData ?? null);
-    
+
     if (opportunityData) {
       const clientData = getClient(opportunityData.clientId);
       setClient(clientData ?? null);
       setInteractions(getInteractionsByOpportunity(id as string));
-      setTasks(getTasksByOpportunity(id as string));
+      setTasks(getTasksByOpportunity(id as string))
+    } else {
+        router.back();
     }
-  };
+  }, [id, getOpportunity, getClient, getInteractionsByOpportunity, getTasksByOpportunity, router]);
+
+  useEffect(() => {
+    loadAllData();
+  }, [id, loadAllData]);
+
+  
   
   const handleEditOpportunity = () => {
-    router.push(`/opportunities/edit/${id}`);
+    router.push(`/oppurutnities/edit/${id}`);
   };
   
   const handleDeleteOpportunity = () => {
@@ -138,11 +137,11 @@ export default function OpportunityDetailScreen() {
   };
   
   const handleInteractionPress = (interaction: Interaction) => {
-    router.push(`/interactions/${interaction.id}`);
+    router.push(`/interactions/edit/${interaction.id}`);
   };
   
   const handleTaskPress = (task: Task) => {
-    router.push(`/tasks/${task.id}`);
+    router.push(`/tasks/add`);
   };
   
   const handleCallComplete = (interaction: Omit<Interaction, 'id'>) => {
@@ -151,7 +150,7 @@ export default function OpportunityDetailScreen() {
       opportunityId: id as string,
     };
     addInteraction(interactionWithOpportunity);
-    loadData();
+    loadAllData()
   };
   
   if (!opportunity || !client) {

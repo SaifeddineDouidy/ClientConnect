@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
-import { colors } from '@/constants/colors';
+import { colors } from '@/constants/Colors';
+import React from 'react';
 
 export default function AuthLayout() {
   return (

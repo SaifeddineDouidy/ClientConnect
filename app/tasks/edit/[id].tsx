@@ -3,48 +3,48 @@ import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/Colors';
-import { useInteractionStore } from '@/store/interactionStore';
-import { InteractionForm } from '@/components/forms/InteractionForm';
-import { Interaction } from '@/types';
+import { useTaskStore } from '@/store/taskStore';
+import { TaskForm } from '@/components/forms/TaskForm';
+import { Task } from '@/types';
 
-export default function EditInteractionScreen() {
+export default function EditTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   
-  const { getInteraction, updateInteraction, isLoading } = useInteractionStore();
+  const { getTask, updateTask, isLoading } = useTaskStore();
   
-  const [interaction, setInteraction] = useState<Interaction | null>(null);
+  const [task, setTask] = useState<Task | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   useEffect(() => {
     if (id) {
-      const interactionData = getInteraction(id);
-      if (interactionData) {
-        setInteraction(interactionData);
+      const taskData = getTask(id);
+      if (taskData) {
+        setTask(taskData);
       } else {
-        Alert.alert('Error', 'Interaction not found');
+        Alert.alert('Error', 'Task not found');
         router.back();
       }
     }
-  }, [id, getInteraction, router]);
+  }, [id, getTask, router]);
   
-  const handleSubmit = async (values: Omit<Interaction, 'id'>) => {
+  const handleSubmit = async (values: Omit<Task, 'id' | 'createdAt'>) => {
     try {
       setIsSubmitting(true);
       
       if (id) {
-        await updateInteraction(id, values);
-        router.replace(`/interactions/${id}`);
+        await updateTask(id, values);
+        router.replace(`/tasks/${id}`);
       }
     } catch (error) {
-      console.error('Error updating interaction:', error);
-      Alert.alert('Error', 'Failed to update interaction');
+      console.error('Error updating task:', error);
+      Alert.alert('Error', 'Failed to update task');
     } finally {
       setIsSubmitting(false);
     }
   };
   
-  if (isLoading || !interaction) {
+  if (isLoading || !task) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -54,10 +54,10 @@ export default function EditInteractionScreen() {
   
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Edit Interaction' }} />
+      <Stack.Screen options={{ title: 'Edit Task' }} />
       
-      <InteractionForm
-        initialValues={interaction}
+      <TaskForm
+        initialValues={task}
         onSubmit={handleSubmit}
         onCancel={() => router.back()}
         isLoading={isSubmitting}

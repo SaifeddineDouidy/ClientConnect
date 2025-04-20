@@ -50,10 +50,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 48,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
     elevation: 1,
   },
   icon: {

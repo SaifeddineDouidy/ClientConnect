@@ -121,10 +121,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
     elevation: 2,
   },
   compactContainer: {

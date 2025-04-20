@@ -6,31 +6,20 @@ import { useOpportunityStore } from '@/store/opportunityStore';
 import { colors } from '@/constants/Colors';
 import { Opportunity } from '@/types';
 
-export default function EditOpportunityScreen() {
-  const { id } = useLocalSearchParams();
+export default function AddOpportunityScreen() {
   const router = useRouter();
-  const getOpportunity = useOpportunityStore(state => state.getOpportunity);
-  const updateOpportunity = useOpportunityStore(state => state.updateOpportunity);
-  const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
+  const { clientId } = useLocalSearchParams();
+  const addOpportunity = useOpportunityStore(state => state.addOpportunity);
   const [isLoading, setIsLoading] = useState(false);
-  
-  useEffect(() => {
-    const opportunityData = getOpportunity(id as string);
-    if (opportunityData) {
-      setOpportunity(opportunityData);
-    } else {
-      router.back();
-    }
-  }, [id]);
   
   const handleSubmit = (values: Omit<Opportunity, 'id' | 'createdAt' | 'updatedAt'>) => {
     setIsLoading(true);
     
     try {
-      updateOpportunity(id as string, values);
-      router.push(`/(stack)/opportunities/${id}`);
+      const opportunityId = addOpportunity(values);
+      router.push(`/oppurutnities/${opportunityId}`);
     } catch (error) {
-      console.error('Error updating opportunity:', error);
+      console.error('Error adding opportunity:', error);
     } finally {
       setIsLoading(false);
     }
@@ -40,17 +29,13 @@ export default function EditOpportunityScreen() {
     router.back();
   };
   
-  if (!opportunity) {
-    return null;
-  }
-  
   return (
     <View style={styles.container}>
       <OpportunityForm
-        initialValues={opportunity}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         isLoading={isLoading}
+        preselectedClientId={clientId as string}
       />
     </View>
   );

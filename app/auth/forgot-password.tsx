@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
-import { colors } from '@/constants/colors';
+import { colors } from '@/constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, ArrowLeft } from 'lucide-react-native';
 
@@ -73,7 +73,7 @@ export default function ForgotPasswordScreen() {
             )}
             
             <View style={styles.inputContainer}>
-              <Mail size={20} color={colors.textSecondary} style={styles.inputIcon} />
+              <Mail size={20} color={colors.secondary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Email"
@@ -81,7 +81,7 @@ export default function ForgotPasswordScreen() {
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor={colors.secondary}
               />
             </View>
             
@@ -133,23 +133,23 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
+    color: colors.secondary,
   },
   form: {
     marginBottom: 24,
   },
   errorContainer: {
-    backgroundColor: colors.errorLight,
+    backgroundColor: colors.warning,
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
   },
   errorText: {
-    color: colors.error,
+    color: colors.warning,
     fontSize: 14,
   },
   successContainer: {
-    backgroundColor: colors.successLight,
+    backgroundColor: colors.success,
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,

@@ -429,10 +429,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 4,
     elevation: 3,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
     maxHeight: 200,
   },
   dropdownItem: {

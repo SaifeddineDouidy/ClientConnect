@@ -384,10 +384,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.2)'
   },
   kanbanContainer: {
     flex: 1,
