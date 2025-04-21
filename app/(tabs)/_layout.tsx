@@ -6,13 +6,35 @@ import { useClientSubscription } from '@/store/clientStore';
 import { useOpportunitySubscription } from '@/store/opportunityStore';
 import { useInteractionSubscription } from '@/store/interactionStore';
 import { useTaskSubscription } from '@/store/taskStore';
+import { useAuthStore } from '@/store/authStore';
 
 export default function TabLayout() {
-  // Set up real-time subscriptions to Firestore
-  useClientSubscription();
-  useOpportunitySubscription();
-  useInteractionSubscription();
-  useTaskSubscription();
+  const { isAuthenticated } = useAuthStore();
+  
+  // Get the subscription functions from the hooks
+  const subscribeToClients = useClientSubscription();
+  const subscribeToOpportunities = useOpportunitySubscription();
+  const subscribeToInteractions = useInteractionSubscription();
+  const subscribeToTasks = useTaskSubscription();
+  
+  useEffect(() => {
+    // Only subscribe when authenticated
+    if (isAuthenticated) {
+      // Set up subscriptions and store the unsubscribe functions
+      const unsubscribeClients = subscribeToClients();
+      const unsubscribeOpportunities = subscribeToOpportunities();
+      const unsubscribeInteractions = subscribeToInteractions();
+      const unsubscribeTasks = subscribeToTasks();
+      
+      // Clean up subscriptions when component unmounts or auth state changes
+      return () => {
+        if (unsubscribeClients) unsubscribeClients();
+        if (unsubscribeOpportunities) unsubscribeOpportunities();
+        if (unsubscribeInteractions) unsubscribeInteractions();
+        if (unsubscribeTasks) unsubscribeTasks();
+      };
+    }
+  }, [isAuthenticated, subscribeToClients, subscribeToOpportunities, subscribeToInteractions, subscribeToTasks]);
   
   return (
     <Tabs

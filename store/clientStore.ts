@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { Client } from '@/types';
 import { clientService } from '@/services/firestore';
-import { useEffect } from 'react';
 
 interface ClientState {
   clients: Client[];
@@ -105,17 +104,18 @@ export const useClientStore = create<ClientState>((set, get) => ({
   },
 }));
 
-// Set up real-time subscription
+// Set up real-time subscription hook
 export function useClientSubscription() {
   const { setClients } = useClientStore();
   
-  useEffect(() => {
+  // Return a function that, when called, will set up the subscription
+  return () => {
     // Subscribe to real-time updates
     const unsubscribe = clientService.subscribeToClients((clients) => {
       setClients(clients);
     });
     
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, [setClients]);
+    // Return the unsubscribe function
+    return unsubscribe;
+  };
 }

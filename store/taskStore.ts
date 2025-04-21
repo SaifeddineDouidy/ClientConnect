@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { Task } from '@/types';
 import { taskService } from '@/services/firestore';
-import { useEffect } from 'react';
 
 interface TaskState {
   tasks: Task[];
@@ -133,17 +132,18 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 }));
 
-// Set up real-time subscription
+// Set up real-time subscription hook
 export function useTaskSubscription() {
   const { setTasks } = useTaskStore();
   
-  useEffect(() => {
+  // Return a function that, when called, will set up the subscription
+  return () => {
     // Subscribe to real-time updates
     const unsubscribe = taskService.subscribeToTasks((tasks) => {
       setTasks(tasks);
     });
     
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, [setTasks]);
+    // Return the unsubscribe function
+    return unsubscribe;
+  };
 }

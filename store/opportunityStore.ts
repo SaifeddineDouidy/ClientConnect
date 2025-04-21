@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { Opportunity } from '@/types';
 import { opportunityService } from '@/services/firestore';
-import { useEffect } from 'react';
 
 interface OpportunityState {
   opportunities: Opportunity[];
@@ -117,17 +116,18 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
   },
 }));
 
-// Set up real-time subscription
+// Set up real-time subscription hook
 export function useOpportunitySubscription() {
   const { setOpportunities } = useOpportunityStore();
   
-  useEffect(() => {
+  // Return a function that, when called, will set up the subscription
+  return () => {
     // Subscribe to real-time updates
     const unsubscribe = opportunityService.subscribeToOpportunities((opportunities) => {
       setOpportunities(opportunities);
     });
     
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, [setOpportunities]);
+    // Return the unsubscribe function
+    return unsubscribe;
+  };
 }

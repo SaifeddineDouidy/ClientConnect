@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { Interaction } from '@/types';
 import { interactionService } from '@/services/firestore';
-import { useEffect } from 'react';
 
 interface InteractionState {
   interactions: Interaction[];
@@ -113,17 +112,18 @@ export const useInteractionStore = create<InteractionState>((set, get) => ({
   },
 }));
 
-// Set up real-time subscription
+// Set up real-time subscription hook
 export function useInteractionSubscription() {
   const { setInteractions } = useInteractionStore();
   
-  useEffect(() => {
+  // Return a function that, when called, will set up the subscription
+  return () => {
     // Subscribe to real-time updates
     const unsubscribe = interactionService.subscribeToInteractions((interactions) => {
       setInteractions(interactions);
     });
     
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, [setInteractions]);
+    // Return the unsubscribe function
+    return unsubscribe;
+  };
 }
