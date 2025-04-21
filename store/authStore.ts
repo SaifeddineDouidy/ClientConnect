@@ -57,6 +57,15 @@ const mapFirebaseUser = async (firebaseUser: FirebaseUser): Promise<User> => {
   };
 };
 
+// Create a safe storage implementation that works in both client and server environments
+const storage = typeof window !== 'undefined' 
+  ? createJSONStorage(() => AsyncStorage)
+  : createJSONStorage(() => ({
+      getItem: () => Promise.resolve(null),
+      setItem: () => Promise.resolve(),
+      removeItem: () => Promise.resolve()
+    }));
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -172,27 +181,30 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage, // Use the conditional storage
       partialize: (state) => ({ user: state.user }),
+      skipHydration: typeof window === 'undefined', // Skip hydration during SSR
     }
   )
 );
 
-// Set up auth state listener
-onAuthStateChanged(auth, async (firebaseUser) => {
-  const { setUser, setLoading } = useAuthStore.getState();
-  
-  try {
-    if (firebaseUser) {
-      const user = await mapFirebaseUser(firebaseUser);
-      setUser(user);
-    } else {
+// Set up auth state listener only on the client side
+if (typeof window !== 'undefined') {
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    const { setUser, setLoading } = useAuthStore.getState();
+    
+    try {
+      if (firebaseUser) {
+        const user = await mapFirebaseUser(firebaseUser);
+        setUser(user);
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Auth state change error:', error);
       setUser(null);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Auth state change error:', error);
-    setUser(null);
-  } finally {
-    setLoading(false);
-  }
-});
+  });
+}
