@@ -1,67 +1,90 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { taskService } from '@/services/firestore';
 import { colors } from '@/constants/Colors';
-import { useTaskStore } from '@/store/taskStore';
-import { TaskForm } from '@/components/forms/TaskForm';
 import { Task } from '@/types';
+import { TaskForm } from '@/components/forms/TaskForm';
 
 export default function EditTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   
-  const { getTask, updateTask, isLoading } = useTaskStore();
-  
   const [task, setTask] = useState<Task | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    if (id) {
-      const taskData = getTask(id);
-      if (taskData) {
+    const fetchTask = async () => {
+      try {
+        setLoading(true);
+        
+        if (!id) {
+          setError('Task ID is missing');
+          setLoading(false);
+          return;
+        }
+        
+        const taskData = await taskService.getTask(id);
+        
+        if (!taskData) {
+          setError('Task not found');
+          setLoading(false);
+          return;
+        }
+        
         setTask(taskData);
-      } else {
-        Alert.alert('Error', 'Task not found');
-        router.back();
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching task:', error);
+        setError('Failed to load task');
+        setLoading(false);
       }
-    }
-  }, [id, getTask, router]);
+    };
+    
+    fetchTask();
+  }, [id]);
   
-  const handleSubmit = async (values: Omit<Task, 'id' | 'createdAt'>) => {
+  const handleSubmit = async (updatedTask: Partial<Task>) => {
     try {
-      setIsSubmitting(true);
+      if (!id) return;
       
-      if (id) {
-        await updateTask(id, values);
-        router.replace(`/tasks/${id}`);
-      }
+      await taskService.updateTask(id, updatedTask);
+      router.back();
     } catch (error) {
       console.error('Error updating task:', error);
-      Alert.alert('Error', 'Failed to update task');
-    } finally {
-      setIsSubmitting(false);
+      setError('Failed to update task');
     }
   };
   
-  if (isLoading || !task) {
+  if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </SafeAreaView>
     );
   }
   
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Edit Task' }} />
-      
-      <TaskForm
-        initialValues={task}
-        onSubmit={handleSubmit}
-        onCancel={() => router.back()}
-        isLoading={isSubmitting}
-      />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.formContainer}>
+            {task && (
+              <TaskForm
+                initialValues={task}
+                onSubmit={handleSubmit} onCancel={function (): void {
+                  throw new Error('Function not implemented.');
+                } }                
+              />
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -70,6 +93,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  formContainer: {
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,

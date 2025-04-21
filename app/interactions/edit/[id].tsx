@@ -1,67 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { interactionService } from '@/services/firestore';
 import { colors } from '@/constants/Colors';
-import { useInteractionStore } from '@/store/interactionStore';
-import { InteractionForm } from '@/components/forms/InteractionForm';
 import { Interaction } from '@/types';
+import { InteractionForm } from '@/components/forms/InteractionForm';
 
 export default function EditInteractionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   
-  const { getInteraction, updateInteraction, isLoading } = useInteractionStore();
-  
   const [interaction, setInteraction] = useState<Interaction | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    if (id) {
-      const interactionData = getInteraction(id);
-      if (interactionData) {
+    const fetchInteraction = async () => {
+      try {
+        setLoading(true);
+        
+        if (!id) {
+          setError('Interaction ID is missing');
+          setLoading(false);
+          return;
+        }
+        
+        const interactionData = await interactionService.getInteraction(id);
+        
+        if (!interactionData) {
+          setError('Interaction not found');
+          setLoading(false);
+          return;
+        }
+        
         setInteraction(interactionData);
-      } else {
-        Alert.alert('Error', 'Interaction not found');
-        router.back();
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching interaction:', error);
+        setError('Failed to load interaction');
+        setLoading(false);
       }
-    }
-  }, [id, getInteraction, router]);
+    };
+    
+    fetchInteraction();
+  }, [id]);
   
-  const handleSubmit = async (values: Omit<Interaction, 'id'>) => {
+  const handleSubmit = async (updatedInteraction: Partial<Interaction>) => {
     try {
-      setIsSubmitting(true);
+      if (!id) return;
       
-      if (id) {
-        await updateInteraction(id, values);
-        router.replace(`/interactions/${id}`);
-      }
+      await interactionService.updateInteraction(id, updatedInteraction);
+      router.back();
     } catch (error) {
       console.error('Error updating interaction:', error);
-      Alert.alert('Error', 'Failed to update interaction');
-    } finally {
-      setIsSubmitting(false);
+      setError('Failed to update interaction');
     }
   };
   
-  if (isLoading || !interaction) {
+  if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </SafeAreaView>
     );
   }
   
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Edit Interaction' }} />
-      
-      <InteractionForm
-        initialValues={interaction}
-        onSubmit={handleSubmit}
-        onCancel={() => router.back()}
-        isLoading={isSubmitting}
-      />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.formContainer}>
+            {interaction && (
+              <InteractionForm
+                initialValues={interaction}
+                onSubmit={handleSubmit} 
+                onCancel={function (): void {
+                  throw new Error('Function not implemented.');
+                } }              
+                />
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -70,6 +94,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  formContainer: {
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,

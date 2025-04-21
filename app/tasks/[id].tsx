@@ -1,59 +1,73 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Switch } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar, Edit, Trash2, ArrowLeft, CheckCircle, XCircle, AlertCircle } from 'lucide-react-native';
+import { format } from 'date-fns';
+import { taskService } from '@/services/firestore';
+import { clientService } from '@/services/firestore';
+import { opportunityService } from '@/services/firestore';
 import { colors } from '@/constants/Colors';
-import { useTaskStore } from '@/store/taskStore';
-import { useClientStore } from '@/store/clientStore';
-import { useOpportunityStore } from '@/store/opportunityStore';
-import { formatDate } from '@/utils/helpers';
-import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
-import { Avatar } from '@/components/Avatar';
 import { Task, Client, Opportunity } from '@/types';
+import { Calendar, FileText, Users, Briefcase, Trash2, Edit, ArrowRight, CheckCircle, AlertCircle, Flag } from 'lucide-react-native';
 
 export default function TaskDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   
-  const { getTask, deleteTask, toggleTaskCompletion, isLoading } = useTaskStore();
-  const { getClient } = useClientStore();
-  const { getOpportunity } = useOpportunityStore();
-  
   const [task, setTask] = useState<Task | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
-  const [isToggling, setIsToggling] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    if (id) {
-      const taskData = getTask(id);
-      if (taskData) {
+    const fetchTaskDetails = async () => {
+      try {
+        setLoading(true);
+        
+        if (!id) {
+          setError('Task ID is missing');
+          setLoading(false);
+          return;
+        }
+        
+        // Fetch task details
+        const taskData = await taskService.getTask(id);
+        
+        if (!taskData) {
+          setError('Task not found');
+          setLoading(false);
+          return;
+        }
+        
         setTask(taskData);
         
-        // Get related client if exists
+        // Fetch related client
         if (taskData.clientId) {
-          const clientData = getClient(taskData.clientId);
-          if (clientData) {
-            setClient(clientData);
-          }
+          const clientData = await clientService.getClient(taskData.clientId);
+          setClient(clientData);
         }
         
-        // Get related opportunity if exists
+        // Fetch related opportunity
         if (taskData.opportunityId) {
-          const opportunityData = getOpportunity(taskData.opportunityId);
-          if (opportunityData) {
-            setOpportunity(opportunityData);
-          }
+          const opportunityData = await opportunityService.getOpportunity(taskData.opportunityId);
+          setOpportunity(opportunityData);
         }
-      } else {
-        // Handle case where task is not found
-        Alert.alert('Error', 'Task not found');
-        router.back();
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching task details:', error);
+        setError('Failed to load task details');
+        setLoading(false);
       }
-    }
-  }, [id, getTask, getClient, getOpportunity, router]);
+    };
+    
+    fetchTaskDetails();
+  }, [id]);
+  
+  const handleEdit = () => {
+    router.push(`/tasks/edit/${id}`);
+  };
   
   const handleDelete = () => {
     Alert.alert(
@@ -66,10 +80,10 @@ export default function TaskDetailsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              if (id) {
-                await deleteTask(id);
-                router.back();
-              }
+              if (!id) return;
+              
+              await taskService.deleteTask(id);
+              router.back();
             } catch (error) {
               console.error('Error deleting task:', error);
               Alert.alert('Error', 'Failed to delete task');
@@ -80,227 +94,169 @@ export default function TaskDetailsScreen() {
     );
   };
   
-  const handleEdit = () => {
-    if (id) {
-      router.push(`/tasks/edit/${id}`);
-    }
-  };
-  
   const handleToggleCompletion = async () => {
-    if (id && task) {
-      try {
-        setIsToggling(true);
-        await toggleTaskCompletion(id);
-        setTask({
-          ...task,
-          completed: !task.completed
-        });
-      } catch (error) {
-        console.error('Error toggling task completion:', error);
-        Alert.alert('Error', 'Failed to update task status');
-      } finally {
-        setIsToggling(false);
-      }
+    try {
+      if (!id || !task) return;
+      
+      await taskService.toggleTaskCompletion(id);
+      setTask({
+        ...task,
+        completed: !task.completed,
+      });
+    } catch (error) {
+      console.error('Error toggling task completion:', error);
+      Alert.alert('Error', 'Failed to update task status');
     }
   };
   
-  const getPriorityIcon = (priority: Task['priority']) => {
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return <AlertCircle size={20} color={colors.danger} />;
-      case 'medium':
-        return <AlertCircle size={20} color={colors.warning} />;
-      case 'low':
-        return <AlertCircle size={20} color={colors.success} />;
-      default:
-        return <AlertCircle size={20} color={colors.grey} />;
-    }
-  };
-  
-  const getPriorityColor = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'high':
-        return colors.danger;
+        return colors.warning;
       case 'medium':
         return colors.warning;
       case 'low':
-        return colors.success;
+        return colors.primary;
       default:
-        return colors.grey;
+        return colors.secondary;
     }
   };
   
   const isOverdue = (dueDate: number) => {
-    return !task?.completed && dueDate < Date.now();
+    return new Date(dueDate) < new Date() && !task?.completed;
   };
   
-  if (isLoading) {
+  if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </SafeAreaView>
     );
   }
   
-  if (!task) {
+  if (error || !task) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text>No task data found</Text>
-      </View>
+      <SafeAreaView style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error || 'Failed to load task'}</Text>
+        <TouchableOpacity style={styles.button} onPress={() => router.back()}>
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     );
   }
   
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen 
-        options={{
-          title: 'Task Details',
-          headerRight: () => (
-            <View style={styles.headerButtons}>
-              <TouchableOpacity onPress={handleEdit} style={styles.headerButton}>
-                <Edit size={20} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete} style={styles.headerButton}>
-                <Trash2 size={20} color={colors.danger} />
-              </TouchableOpacity>
-            </View>
-          ),
-        }} 
-      />
-      
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Card style={styles.card}>
-          <View style={styles.header}>
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>{task.title}</Text>
-              <View style={styles.statusContainer}>
-                {isToggling ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Switch
-                    value={task.completed}
-                    onValueChange={handleToggleCompletion}
-                    trackColor={{ false: colors.border, true: colors.primaryLight }}
-                    thumbColor={task.completed ? colors.primary : colors.grey}
-                  />
-                )}
-              </View>
-            </View>
-            
-            <View style={styles.metaContainer}>
-              <View style={styles.priorityContainer}>
-                {getPriorityIcon(task.priority)}
-                <Text style={[styles.priorityText, { color: getPriorityColor(task.priority) }]}>
-                  {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} Priority
-                </Text>
-              </View>
-              
-              <View style={styles.dateContainer}>
-                <Calendar size={16} color={isOverdue(task.dueDate) ? colors.danger : colors.textLight} style={styles.icon} />
-                <Text 
-                  style={[
-                    styles.dateText, 
-                    isOverdue(task.dueDate) && styles.overdueText
-                  ]}
-                >
-                  {isOverdue(task.dueDate) ? 'Overdue: ' : 'Due: '}
-                  {formatDate(task.dueDate)}
-                </Text>
-              </View>
-            </View>
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.header}>
+          <View style={styles.titleContainer}>
+            <Text style={[
+              styles.title,
+              task.completed && styles.completedTitle
+            ]}>
+              {task.title}
+            </Text>
+            {task.completed ? (
+              <CheckCircle size={20} color={colors.success} style={styles.statusIcon} />
+            ) : isOverdue(task.dueDate) ? (
+              <AlertCircle size={20} color={colors.warning} style={styles.statusIcon} />
+            ) : null}
           </View>
           
-          <View style={styles.divider} />
-          
-          <View style={styles.statusSection}>
-            <Text style={styles.sectionTitle}>Status</Text>
-            <View style={styles.statusIndicator}>
-              {task.completed ? (
-                <>
-                  <CheckCircle size={20} color={colors.success} style={styles.statusIcon} />
-                  <Text style={[styles.statusText, { color: colors.success }]}>Completed</Text>
-                </>
-              ) : (
-                <>
-                  <XCircle size={20} color={isOverdue(task.dueDate) ? colors.danger : colors.textLight} style={styles.statusIcon} />
-                  <Text 
-                    style={[
-                      styles.statusText, 
-                      { color: isOverdue(task.dueDate) ? colors.danger : colors.textLight }
-                    ]}
-                  >
-                    {isOverdue(task.dueDate) ? 'Overdue' : 'Pending'}
-                  </Text>
-                </>
-              )}
-            </View>
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+              <Edit size={20} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
+              <Trash2 size={20} color={colors.warning} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <View style={styles.section}>
+          <View style={styles.completionContainer}>
+            <Text style={styles.completionLabel}>Mark as completed</Text>
+            <Switch
+              value={task.completed}
+              onValueChange={handleToggleCompletion}
+              trackColor={{ false: colors.lightGrey, true: colors.success }}
+              thumbColor={task.completed ? colors.success : colors.white}
+            />
           </View>
           
-          {task.description && (
-            <View style={styles.descriptionSection}>
-              <Text style={styles.sectionTitle}>Description</Text>
+          <View style={styles.infoRow}>
+            <Calendar size={18} color={colors.secondary} />
+            <Text style={styles.infoLabel}>Due Date:</Text>
+            <Text style={[
+              styles.infoValue,
+              isOverdue(task.dueDate) && styles.overdueText
+            ]}>
+              {format(new Date(task.dueDate), 'PPP')}
+              {isOverdue(task.dueDate) && ' (Overdue)'}
+            </Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Flag size={18} color={getPriorityColor(task.priority)} />
+            <Text style={styles.infoLabel}>Priority:</Text>
+            <View style={[
+              styles.priorityBadge,
+              { backgroundColor: `${getPriorityColor(task.priority)}20` }
+            ]}>
+              <Text style={[
+                styles.priorityText,
+                { color: getPriorityColor(task.priority) }
+              ]}>
+                {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+              </Text>
+            </View>
+          </View>
+        </View>
+        
+        {client && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Related Client</Text>
+            <TouchableOpacity 
+              style={styles.relatedItemContainer}
+              onPress={() => router.push(`/clients/${client.id}`)}
+            >
+              <View style={styles.relatedItemContent}>
+                <Text style={styles.relatedItemTitle}>
+                  {client.firstName} {client.lastName}
+                </Text>
+                <Text style={styles.relatedItemSubtitle}>{client.company}</Text>
+              </View>
+              <ArrowRight size={18} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        {opportunity && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Related Opportunity</Text>
+            <TouchableOpacity 
+              style={styles.relatedItemContainer}
+              onPress={() => router.push(`/opportunities/${opportunity.id}`)}
+            >
+              <View style={styles.relatedItemContent}>
+                <Text style={styles.relatedItemTitle}>{opportunity.title}</Text>
+                <Text style={styles.relatedItemSubtitle}>
+                  ${opportunity.value.toLocaleString()} • {opportunity.stage}
+                </Text>
+              </View>
+              <ArrowRight size={18} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        {task.description && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <View style={styles.descriptionContainer}>
               <Text style={styles.descriptionText}>{task.description}</Text>
             </View>
-          )}
-          
-          {client && (
-            <View style={styles.clientSection}>
-              <Text style={styles.sectionTitle}>Related Client</Text>
-              <TouchableOpacity 
-                style={styles.clientCard}
-                onPress={() => router.push(`/clients/${client.id}`)}
-              >
-                <Avatar 
-                  firstName={`${client.firstName}`}
-                  lastName={` ${client.lastName}`}
-                  size={40}
-                  imageUrl={client.avatar}
-                />
-                <View style={styles.clientInfo}>
-                  <Text style={styles.clientName}>{client.firstName} {client.lastName}</Text>
-                  <Text style={styles.clientCompany}>{client.company}</Text>
-                </View>
-                <ArrowLeft size={16} color={colors.textLight} style={styles.arrowIcon} />
-              </TouchableOpacity>
-            </View>
-          )}
-          
-          {opportunity && (
-            <View style={styles.opportunitySection}>
-              <Text style={styles.sectionTitle}>Related Opportunity</Text>
-              <TouchableOpacity 
-                style={styles.opportunityCard}
-                onPress={() => router.push(`/opportunities/${opportunity.id}`)}
-              >
-                <View style={styles.opportunityInfo}>
-                  <Text style={styles.opportunityTitle}>{opportunity.title}</Text>
-                </View>
-                <ArrowLeft size={16} color={colors.textLight} style={styles.arrowIcon} />
-              </TouchableOpacity>
-            </View>
-          )}
-          
-          <View style={styles.createdSection}>
-            <Text style={styles.sectionTitle}>Created</Text>
-            <Text style={styles.createdText}>{formatDate(task.createdAt)}</Text>
           </View>
-        </Card>
-        
-        <View style={styles.buttonContainer}>
-          <Button 
-            title={task.completed ? "Mark as Incomplete" : "Mark as Complete"}
-            onPress={handleToggleCompletion}
-            variant={task.completed ? "outline" : "primary"}
-            style={styles.completeButton}
-            loading={isToggling}
-          />
-          <Button 
-            title="Back to List" 
-            onPress={() => router.back()} 
-            variant="outline"
-            style={styles.backButton}
-          />
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -311,173 +267,159 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scrollView: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
   },
-  scrollView: {
+  errorContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    padding: 20,
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  card: {
-    padding: 16,
-    marginBottom: 16,
+  errorText: {
+    fontSize: 16,
+    color: colors.warning,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   header: {
-    marginBottom: 12,
-  },
-  titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    padding: 16,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  titleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: colors.text,
     flex: 1,
-    marginRight: 8,
   },
-  statusContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  metaContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  priorityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  priorityText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateText: {
-    fontSize: 14,
-    color: colors.textLight,
-  },
-  overdueText: {
-    color: colors.danger,
-    fontWeight: '500',
-  },
-  icon: {
-    marginRight: 6,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 16,
-  },
-  statusSection: {
-    marginBottom: 16,
-  },
-  statusIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  completedTitle: {
+    textDecorationLine: 'line-through',
+    color: colors.secondary,
   },
   statusIcon: {
-    marginRight: 8,
+    marginLeft: 8,
   },
-  statusText: {
-    fontSize: 16,
-    fontWeight: '500',
+  actions: {
+    flexDirection: 'row',
+  },
+  actionButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  section: {
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+    elevation: 2,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textLight,
-    marginBottom: 8,
-  },
-  descriptionSection: {
-    marginBottom: 16,
-  },
-  descriptionText: {
     fontSize: 16,
+    fontWeight: '600',
     color: colors.text,
-    lineHeight: 24,
-  },
-  clientSection: {
-    marginBottom: 16,
-  },
-  clientCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  clientInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  clientName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  clientCompany: {
-    fontSize: 14,
-    color: colors.textLight,
-  },
-  arrowIcon: {
-    transform: [{ rotate: '180deg' }],
-  },
-  opportunitySection: {
-    marginBottom: 16,
-  },
-  opportunityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  opportunityInfo: {
-    flex: 1,
-  },
-  opportunityTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  createdSection: {
-    marginBottom: 8,
-  },
-  createdText: {
-    fontSize: 14,
-    color: colors.textLight,
-  },
-  buttonContainer: {
-    marginTop: 8,
-  },
-  completeButton: {
     marginBottom: 12,
   },
-  backButton: {
-    marginBottom: 16,
-  },
-  headerButtons: {
+  completionContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  headerButton: {
-    marginLeft: 16,
+  completionLabel: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: colors.secondary,
+    marginLeft: 8,
+    width: 80,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: colors.text,
+    flex: 1,
+  },
+  overdueText: {
+    color: colors.warning,
+    fontWeight: '500',
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  priorityText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  descriptionContainer: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: 8,
+    padding: 12,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  relatedItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primaryLight,
+    borderRadius: 8,
+    padding: 12,
+  },
+  relatedItemContent: {
+    flex: 1,
+  },
+  relatedItemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  relatedItemSubtitle: {
+    fontSize: 12,
+    color: colors.secondary,
+  },
+  button: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

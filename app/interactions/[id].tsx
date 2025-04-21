@@ -1,56 +1,73 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar, Clock, Edit, Trash2, ArrowLeft, Phone, Mail, MessageSquare, Users } from 'lucide-react-native';
+import { format } from 'date-fns';
+import { interactionService } from '@/services/firestore';
+import { clientService } from '@/services/firestore';
+import { opportunityService } from '@/services/firestore';
 import { colors } from '@/constants/Colors';
-import { useInteractionStore } from '@/store/interactionStore';
-import { useClientStore } from '@/store/clientStore';
-import { useOpportunityStore } from '@/store/opportunityStore';
-import { formatDate, formatCurrency } from '@/utils/helpers';
-import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
-import { Avatar } from '@/components/Avatar';
 import { Interaction, Client, Opportunity } from '@/types';
+import { Phone, Mail, Calendar, Clock, FileText, MessageSquare, Users, Briefcase, Trash2, Edit, ArrowRight } from 'lucide-react-native';
 
 export default function InteractionDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   
-  const { getInteraction, deleteInteraction, isLoading } = useInteractionStore();
-  const { getClient } = useClientStore();
-  const { getOpportunity } = useOpportunityStore();
-  
   const [interaction, setInteraction] = useState<Interaction | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    if (id) {
-      const interactionData = getInteraction(id);
-      if (interactionData) {
+    const fetchInteractionDetails = async () => {
+      try {
+        setLoading(true);
+        
+        if (!id) {
+          setError('Interaction ID is missing');
+          setLoading(false);
+          return;
+        }
+        
+        // Fetch interaction details
+        const interactionData = await interactionService.getInteraction(id);
+        
+        if (!interactionData) {
+          setError('Interaction not found');
+          setLoading(false);
+          return;
+        }
+        
         setInteraction(interactionData);
         
-        // Get related client
-        const clientData = getClient(interactionData.clientId);
-        if (clientData) {
+        // Fetch related client
+        if (interactionData.clientId) {
+          const clientData = await clientService.getClient(interactionData.clientId);
           setClient(clientData);
         }
         
-        // Get related opportunity if exists
+        // Fetch related opportunity
         if (interactionData.opportunityId) {
-          const opportunityData = getOpportunity(interactionData.opportunityId);
-          if (opportunityData) {
-            setOpportunity(opportunityData);
-          }
+          const opportunityData = await opportunityService.getOpportunity(interactionData.opportunityId);
+          setOpportunity(opportunityData);
         }
-      } else {
-        // Handle case where interaction is not found
-        Alert.alert('Error', 'Interaction not found');
-        router.back();
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching interaction details:', error);
+        setError('Failed to load interaction details');
+        setLoading(false);
       }
-    }
-  }, [id, getInteraction, getClient, getOpportunity, router]);
+    };
+    
+    fetchInteractionDetails();
+  }, [id]);
+  
+  const handleEdit = () => {
+    router.push(`/interactions/edit/${id}`);
+  };
   
   const handleDelete = () => {
     Alert.alert(
@@ -63,10 +80,10 @@ export default function InteractionDetailsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              if (id) {
-                await deleteInteraction(id);
-                router.back();
-              }
+              if (!id) return;
+              
+              await interactionService.deleteInteraction(id);
+              router.back();
             } catch (error) {
               console.error('Error deleting interaction:', error);
               Alert.alert('Error', 'Failed to delete interaction');
@@ -77,153 +94,142 @@ export default function InteractionDetailsScreen() {
     );
   };
   
-  const handleEdit = () => {
-    if (id) {
-      router.push(`/interactions/edit/${id}`);
-    }
-  };
-  
-  const getTypeIcon = (type: Interaction['type']) => {
+  const getInteractionTypeIcon = (type: string) => {
     switch (type) {
       case 'call':
         return <Phone size={20} color={colors.primary} />;
-      case 'message':
-        return <MessageSquare size={20} color={colors.primary} />;
-      case 'meeting':
-        return <Users size={20} color={colors.primary} />;
       case 'email':
         return <Mail size={20} color={colors.primary} />;
-      case 'note':
+      case 'meeting':
+        return <Users size={20} color={colors.primary} />;
+      case 'message':
+        return <MessageSquare size={20} color={colors.primary} />;
       default:
-        return <Edit size={20} color={colors.primary} />;
+        return <FileText size={20} color={colors.primary} />;
     }
   };
   
-  if (isLoading) {
+  if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </SafeAreaView>
     );
   }
   
-  if (!interaction || !client) {
+  if (error || !interaction) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text>No interaction data found</Text>
-      </View>
+      <SafeAreaView style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error || 'Failed to load interaction'}</Text>
+        <TouchableOpacity style={styles.button} onPress={() => router.back()}>
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     );
   }
   
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen 
-        options={{
-          title: `${interaction.type.charAt(0).toUpperCase() + interaction.type.slice(1)} Details`,
-          headerRight: () => (
-            <View style={styles.headerButtons}>
-              <TouchableOpacity onPress={handleEdit} style={styles.headerButton}>
-                <Edit size={20} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete} style={styles.headerButton}>
-                <Trash2 size={20} color={colors.danger} />
-              </TouchableOpacity>
-            </View>
-          ),
-        }} 
-      />
-      
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Card style={styles.card}>
-          <View style={styles.header}>
-            <View style={styles.typeContainer}>
-              {getTypeIcon(interaction.type)}
-              <Text style={styles.typeText}>
-                {interaction.type.charAt(0).toUpperCase() + interaction.type.slice(1)}
-              </Text>
-            </View>
-            <View style={styles.dateContainer}>
-              <Calendar size={16} color={colors.textLight} style={styles.icon} />
-              <Text style={styles.dateText}>{formatDate(interaction.date)}</Text>
-            </View>
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.header}>
+          <View style={styles.typeContainer}>
+            {getInteractionTypeIcon(interaction.type)}
+            <Text style={styles.typeText}>
+              {interaction.type.charAt(0).toUpperCase() + interaction.type.slice(1)}
+            </Text>
           </View>
           
-          {(interaction.type === 'call' || interaction.type === 'meeting') && interaction.duration && (
-            <View style={styles.durationContainer}>
-              <Clock size={16} color={colors.textLight} style={styles.icon} />
-              <Text style={styles.durationText}>{interaction.duration} minutes</Text>
-            </View>
-          )}
-          
-          <View style={styles.divider} />
-          
-          <View style={styles.clientSection}>
-            <Text style={styles.sectionTitle}>Client</Text>
-            <TouchableOpacity 
-              style={styles.clientCard}
-              onPress={() => router.push(`/clients/${client.id}`)}
-            >
-              <Avatar 
-                firstName={`${client.firstName}`}
-                lastName = {`${client.lastName}`}
-                size={40}
-                imageUrl={client.avatar}
-              />
-              <View style={styles.clientInfo}>
-                <Text style={styles.clientName}>{client.firstName} {client.lastName}</Text>
-                <Text style={styles.clientCompany}>{client.company}</Text>
-              </View>
-              <ArrowLeft size={16} color={colors.textLight} style={styles.arrowIcon} />
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+              <Edit size={20} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
+              <Trash2 size={20} color={colors.warning} />
             </TouchableOpacity>
           </View>
-          
-          {opportunity && (
-            <View style={styles.opportunitySection}>
-              <Text style={styles.sectionTitle}>Related Opportunity</Text>
-              <TouchableOpacity 
-                style={styles.opportunityCard}
-                onPress={() => router.push(`/opportunities/${opportunity.id}`)}
-              >
-                <View style={styles.opportunityInfo}>
-                  <Text style={styles.opportunityTitle}>{opportunity.title}</Text>
-                  <Text style={styles.opportunityValue}>{formatCurrency(opportunity.value)}</Text>
-                </View>
-                <ArrowLeft size={16} color={colors.textLight} style={styles.arrowIcon} />
-              </TouchableOpacity>
-            </View>
-          )}
-          
-          <View style={styles.notesSection}>
-            <Text style={styles.sectionTitle}>Notes</Text>
-            <Text style={styles.notesText}>{interaction.notes || 'No notes provided'}</Text>
+        </View>
+        
+        <View style={styles.section}>
+          <View style={styles.infoRow}>
+            <Calendar size={18} color={colors.secondary} />
+            <Text style={styles.infoLabel}>Date:</Text>
+            <Text style={styles.infoValue}>
+              {format(new Date(interaction.date), 'PPP')}
+            </Text>
           </View>
           
-          {interaction.outcome && (
-            <View style={styles.outcomeSection}>
-              <Text style={styles.sectionTitle}>Outcome</Text>
-              <Text style={styles.outcomeText}>{interaction.outcome}</Text>
+          {interaction.duration && (
+            <View style={styles.infoRow}>
+              <Clock size={18} color={colors.secondary} />
+              <Text style={styles.infoLabel}>Duration:</Text>
+              <Text style={styles.infoValue}>{interaction.duration} minutes</Text>
             </View>
           )}
           
           {interaction.followUpDate && (
-            <View style={styles.followUpSection}>
-              <Text style={styles.sectionTitle}>Follow-up Date</Text>
-              <View style={styles.followUpContainer}>
-                <Calendar size={16} color={colors.primary} style={styles.icon} />
-                <Text style={styles.followUpText}>{formatDate(interaction.followUpDate)}</Text>
-              </View>
+            <View style={styles.infoRow}>
+              <Calendar size={18} color={colors.secondary} />
+              <Text style={styles.infoLabel}>Follow-up:</Text>
+              <Text style={styles.infoValue}>
+                {format(new Date(interaction.followUpDate), 'PPP')}
+              </Text>
             </View>
           )}
-        </Card>
-        
-        <View style={styles.buttonContainer}>
-          <Button 
-            title="Back to List" 
-            onPress={() => router.back()} 
-            variant="outline"
-            style={styles.backButton}
-          />
         </View>
+        
+        {client && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Related Client</Text>
+            <TouchableOpacity 
+              style={styles.relatedItemContainer}
+              onPress={() => router.push(`/clients/${client.id}`)}
+            >
+              <View style={styles.relatedItemContent}>
+                <Text style={styles.relatedItemTitle}>
+                  {client.firstName} {client.lastName}
+                </Text>
+                <Text style={styles.relatedItemSubtitle}>{client.company}</Text>
+              </View>
+              <ArrowRight size={18} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        {opportunity && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Related Opportunity</Text>
+            <TouchableOpacity 
+              style={styles.relatedItemContainer}
+              onPress={() => router.push(`/opportunities/${opportunity.id}`)}
+            >
+              <View style={styles.relatedItemContent}>
+                <Text style={styles.relatedItemTitle}>{opportunity.title}</Text>
+                <Text style={styles.relatedItemSubtitle}>
+                  ${opportunity.value.toLocaleString()} • {opportunity.stage}
+                </Text>
+              </View>
+              <ArrowRight size={18} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        {interaction.notes && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Notes</Text>
+            <View style={styles.notesContainer}>
+              <Text style={styles.notesText}>{interaction.notes}</Text>
+            </View>
+          </View>
+        )}
+        
+        {interaction.outcome && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Outcome</Text>
+            <View style={styles.notesContainer}>
+              <Text style={styles.notesText}>{interaction.outcome}</Text>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -234,28 +240,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scrollView: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
   },
-  scrollView: {
+  errorContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    padding: 20,
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  card: {
-    padding: 16,
-    marginBottom: 16,
+  errorText: {
+    fontSize: 16,
+    color: colors.warning,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    padding: 16,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   typeContainer: {
     flexDirection: 'row',
@@ -267,127 +281,87 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginLeft: 8,
   },
-  dateContainer: {
+  actions: {
     flexDirection: 'row',
-    alignItems: 'center',
   },
-  dateText: {
-    fontSize: 14,
-    color: colors.textLight,
+  actionButton: {
+    padding: 8,
+    marginLeft: 8,
   },
-  durationContainer: {
+  section: {
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+
+    
+    elevation: 2,
+
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  durationText: {
+  infoLabel: {
     fontSize: 14,
-    color: colors.textLight,
+    color: colors.secondary,
+    marginLeft: 8,
+    width: 80,
   },
-  icon: {
-    marginRight: 6,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 16,
-  },
-  clientSection: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
+  infoValue: {
     fontSize: 14,
-    fontWeight: '500',
-    color: colors.textLight,
-    marginBottom: 8,
-  },
-  clientCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  clientInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  clientName: {
-    fontSize: 16,
-    fontWeight: '500',
     color: colors.text,
-  },
-  clientCompany: {
-    fontSize: 14,
-    color: colors.textLight,
-  },
-  arrowIcon: {
-    transform: [{ rotate: '180deg' }],
-  },
-  opportunitySection: {
-    marginBottom: 16,
-  },
-  opportunityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  opportunityInfo: {
     flex: 1,
   },
-  opportunityTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  opportunityValue: {
-    fontSize: 14,
-    color: colors.success,
-  },
-  notesSection: {
-    marginBottom: 16,
+  notesContainer: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: 8,
+    padding: 12,
   },
   notesText: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.text,
-    lineHeight: 24,
+    lineHeight: 20,
   },
-  outcomeSection: {
-    marginBottom: 16,
-  },
-  outcomeText: {
-    fontSize: 16,
-    color: colors.text,
-    lineHeight: 24,
-  },
-  followUpSection: {
-    marginBottom: 8,
-  },
-  followUpContainer: {
+  relatedItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primaryLight,
+    borderRadius: 8,
+    padding: 12,
   },
-  followUpText: {
+  relatedItemContent: {
+    flex: 1,
+  },
+  relatedItemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  relatedItemSubtitle: {
+    fontSize: 12,
+    color: colors.secondary,
+  },
+  button: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: colors.white,
     fontSize: 16,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  buttonContainer: {
-    marginTop: 8,
-  },
-  backButton: {
-    marginBottom: 16,
-  },
-  headerButtons: {
-    flexDirection: 'row',
-  },
-  headerButton: {
-    marginLeft: 16,
+    fontWeight: '600',
   },
 });
