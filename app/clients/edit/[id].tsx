@@ -28,7 +28,7 @@ export default function EditClientScreen() {
     
     try {
       updateClient(id as string, values);
-      router.push(`/clients/${id}`);
+      router.push(`/(tabs)/clients`);
     } catch (error) {
       console.error('Error updating client:', error);
     } finally {

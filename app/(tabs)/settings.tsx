@@ -29,6 +29,12 @@ import { useClientStore } from '@/store/clientStore';
 import { useOpportunityStore } from '@/store/opportunityStore';
 import { useInteractionStore } from '@/store/interactionStore';
 import { useTaskStore } from '@/store/taskStore';
+import { getAuth, signOut } from 'firebase/auth';
+import { auth } from '@/config/firebase';
+import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+
+
 
 export default function SettingsScreen() {
   const [darkMode, setDarkMode] = useState(false);
@@ -38,6 +44,19 @@ export default function SettingsScreen() {
   const opportunities = useOpportunityStore(state => state.opportunities);
   const interactions = useInteractionStore(state => state.interactions);
   const tasks = useTaskStore(state => state.tasks);
+
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      // Use expo-router navigation
+      router.replace('/auth/login');
+    } catch (error) {
+      // @ts-ignore
+      Alert.alert('Logout Error', error.message);
+    }
+  };
   
   const handleClearData = () => {
     Alert.alert(
@@ -239,13 +258,13 @@ export default function SettingsScreen() {
       
       <View style={styles.section}>
         <Card variant="outlined" style={styles.card}>
-          {renderSettingItem(
-            <LogOut size={20} color={colors.danger} style={styles.settingIcon} />,
-            'Log Out',
-            () => Alert.alert('Log Out', 'This feature is not implemented in this demo.'),
-            undefined,
-            true
-          )}
+        {renderSettingItem(
+        <LogOut size={20} color={colors.danger} style={styles.settingIcon} />,
+        'Log Out',
+        handleLogout,
+        undefined,
+        true
+      )}
         </Card>
       </View>
       

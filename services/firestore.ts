@@ -57,24 +57,19 @@ import {
       options: SnapshotOptions
     ): T => {
       const data = snapshot.data(options);
-      
-      // Convert Firestore Timestamps back to milliseconds
       const converted: any = { ...data };
-      
-      // Handle date fields
-      if (converted.createdAt) {
-        converted.createdAt = converted.createdAt.toMillis();
-      }
-      if (converted.updatedAt) {
-        converted.updatedAt = converted.updatedAt.toMillis();
-      }
-      if (converted.date) {
-        converted.date = converted.date.toMillis();
-      }
-      if (converted.dueDate) {
-        converted.dueDate = converted.dueDate.toMillis();
-      }
-      
+    
+      // Safely convert Timestamps to milliseconds
+      const convertTimestamp = (field: any) => {
+        if (!field) return field;
+        return field.toMillis ? field.toMillis() : field;
+      };
+    
+      converted.createdAt = convertTimestamp(converted.createdAt);
+      converted.updatedAt = convertTimestamp(converted.updatedAt);
+      converted.date = convertTimestamp(converted.date);
+      converted.dueDate = convertTimestamp(converted.dueDate);
+    
       return converted as T;
     }
   });
@@ -124,11 +119,16 @@ import {
     // Update a client
     async updateClient(id: string, updates: Partial<Omit<Client, 'id' | 'createdAt'>>): Promise<void> {
       const userId = getCurrentUserId();
-      const clientRef = doc(db, 'users', userId, 'clients', id);
-      
+      const clientRef = doc(db, 'users', userId, 'clients', id).withConverter(createConverter<Client>());
+    
+      // Remove undefined fields
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, v]) => v !== undefined)
+      );
+    
       await updateDoc(clientRef, {
-        ...updates,
-        updatedAt: Date.now(),
+        ...cleanUpdates,
+        updatedAt: Date.now(), // Ensured to be a number
       });
     },
     
@@ -209,14 +209,19 @@ import {
       return querySnapshot.docs.map(doc => doc.data());
     },
     
-    // Update an opportunity
+    // In opportunityService
     async updateOpportunity(id: string, updates: Partial<Omit<Opportunity, 'id' | 'createdAt'>>): Promise<void> {
       const userId = getCurrentUserId();
-      const opportunityRef = doc(db, 'users', userId, 'opportunities', id);
-      
+      const opportunityRef = doc(db, 'users', userId, 'opportunities', id).withConverter(createConverter<Opportunity>());
+
+      // Remove undefined fields and convert dates
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, v]) => v !== undefined)
+      );
+
       await updateDoc(opportunityRef, {
-        ...updates,
-        updatedAt: Date.now(),
+        ...cleanUpdates,
+        updatedAt: Date.now(), // Ensure updatedAt is always set
       });
     },
     
@@ -448,12 +453,20 @@ import {
       return querySnapshot.docs.map(doc => doc.data());
     },
     
-    // Update a task
+    // In taskService
     async updateTask(id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>): Promise<void> {
       const userId = getCurrentUserId();
-      const taskRef = doc(db, 'users', userId, 'tasks', id);
-      
-      await updateDoc(taskRef, updates);
+      const taskRef = doc(db, 'users', userId, 'tasks', id).withConverter(createConverter<Task>());
+
+      // Remove undefined fields
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, v]) => v !== undefined)
+      );
+
+      await updateDoc(taskRef, {
+        ...cleanUpdates,
+        updatedAt: Date.now(), // Always set updatedAt
+      });
     },
     
     // Toggle task completion

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Opportunity } from '@/types';
 import { opportunityService } from '@/services/firestore';
 import { useEffect } from 'react';
+import { useAuthStore } from '@/store/authStore';
 
 interface OpportunityState {
   opportunities: Opportunity[];
@@ -120,14 +121,24 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
 // Set up real-time subscription
 export function useOpportunitySubscription() {
   const { setOpportunities } = useOpportunityStore();
+  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
   
   useEffect(() => {
-    // Subscribe to real-time updates
-    const unsubscribe = opportunityService.subscribeToOpportunities((opportunities) => {
-      setOpportunities(opportunities);
-    });
+    let unsubscribe: () => void = () => {};
     
-    // Cleanup subscription on unmount
+    // Only subscribe if the user is authenticated
+    if (isAuthenticated && !authLoading) {
+      try {
+        // Subscribe to real-time updates
+        unsubscribe = opportunityService.subscribeToOpportunities((opportunities) => {
+          setOpportunities(opportunities);
+        });
+      } catch (error) {
+        console.error('Error subscribing to opportunities:', error);
+      }
+    }
+    
+    // Cleanup subscription on unmount or when auth state changes
     return () => unsubscribe();
-  }, [setOpportunities]);
+  }, [setOpportunities, isAuthenticated, authLoading]);
 }

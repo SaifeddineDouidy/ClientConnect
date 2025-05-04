@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Client } from '@/types';
 import { clientService } from '@/services/firestore';
 import { useEffect } from 'react';
+import { useAuthStore } from '@/store/authStore';
 
 interface ClientState {
   clients: Client[];
@@ -108,14 +109,24 @@ export const useClientStore = create<ClientState>((set, get) => ({
 // Set up real-time subscription
 export function useClientSubscription() {
   const { setClients } = useClientStore();
+  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
   
   useEffect(() => {
-    // Subscribe to real-time updates
-    const unsubscribe = clientService.subscribeToClients((clients) => {
-      setClients(clients);
-    });
+    let unsubscribe: () => void = () => {};
     
-    // Cleanup subscription on unmount
+    // Only subscribe if the user is authenticated
+    if (isAuthenticated && !authLoading) {
+      try {
+        // Subscribe to real-time updates
+        unsubscribe = clientService.subscribeToClients((clients) => {
+          setClients(clients);
+        });
+      } catch (error) {
+        console.error('Error subscribing to clients:', error);
+      }
+    }
+    
+    // Cleanup subscription on unmount or when auth state changes
     return () => unsubscribe();
-  }, [setClients]);
+  }, [setClients, isAuthenticated, authLoading]);
 }

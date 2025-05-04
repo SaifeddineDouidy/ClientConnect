@@ -12,18 +12,19 @@ export default function AddOpportunityScreen() {
   const addOpportunity = useOpportunityStore(state => state.addOpportunity);
   const [isLoading, setIsLoading] = useState(false);
   
-  const handleSubmit = (values: Omit<Opportunity, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSubmit = async (values: Omit<Opportunity, 'id' | 'createdAt' | 'updatedAt'>) => {
     setIsLoading(true);
     
     try {
-      const opportunityId = addOpportunity(values);
-      router.push(`/oppurutnities/${opportunityId}`);
+      const opportunityId = await addOpportunity(values); // Wait for the ID
+      router.push(`/opportunities/${opportunityId}`);
     } catch (error) {
       console.error('Error adding opportunity:', error);
     } finally {
       setIsLoading(false);
     }
   };
+  
   
   const handleCancel = () => {
     router.back();

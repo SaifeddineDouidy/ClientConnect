@@ -7,8 +7,9 @@ import {
   TouchableOpacity, 
   Alert,
   Platform,
+  Linking
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { 
   Phone, 
   Mail, 
@@ -52,6 +53,12 @@ export default function ClientDetailScreen() {
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCallScreen, setShowCallScreen] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [id]) // Re-run if ID changes
+  );
   
   useEffect(() => {
     if (!client) {
@@ -94,8 +101,20 @@ export default function ClientDetailScreen() {
     );
   };
   
-  const handleCall = () => {
-    setShowCallScreen(true);
+  const handleCall = (phoneNumber: string) => {
+    if (!phoneNumber) {
+      Alert.alert('Error', 'No phone number available');
+      return;
+    }
+    
+    const formattedNumber = phoneNumber.replace(/\D/g, '');
+    const phoneUrl = `tel:${formattedNumber}`;
+    console.log('Attempting to call:', phoneUrl);
+    
+    Linking.openURL(phoneUrl).catch(err => {
+      Alert.alert('Error', 'Failed to make call: ' + err.message);
+      console.error('Call Error:', err);
+    });
   };
   
   const handleEmail = () => {
@@ -175,10 +194,13 @@ export default function ClientDetailScreen() {
         </View>
         
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
-            <Phone size={24} color={colors.primary} />
-            <Text style={styles.actionText}>Call</Text>
-          </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={() => handleCall(client.phone)} // Pass client.phone here
+        >
+          <Phone size={24} color={colors.primary} />
+          <Text style={styles.actionText}>Call</Text>
+        </TouchableOpacity>
           
           <TouchableOpacity style={styles.actionButton} onPress={handleEmail}>
             <Mail size={24} color={colors.primary} />

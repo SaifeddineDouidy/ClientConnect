@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Interaction } from '@/types';
 import { interactionService } from '@/services/firestore';
 import { useEffect } from 'react';
+import { useAuthStore } from '@/store/authStore';
 
 interface InteractionState {
   interactions: Interaction[];
@@ -116,14 +117,24 @@ export const useInteractionStore = create<InteractionState>((set, get) => ({
 // Set up real-time subscription
 export function useInteractionSubscription() {
   const { setInteractions } = useInteractionStore();
+  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
   
   useEffect(() => {
-    // Subscribe to real-time updates
-    const unsubscribe = interactionService.subscribeToInteractions((interactions) => {
-      setInteractions(interactions);
-    });
+    let unsubscribe: () => void = () => {};
     
-    // Cleanup subscription on unmount
+    // Only subscribe if the user is authenticated
+    if (isAuthenticated && !authLoading) {
+      try {
+        // Subscribe to real-time updates
+        unsubscribe = interactionService.subscribeToInteractions((interactions) => {
+          setInteractions(interactions);
+        });
+      } catch (error) {
+        console.error('Error subscribing to interactions:', error);
+      }
+    }
+    
+    // Cleanup subscription on unmount or when auth state changes
     return () => unsubscribe();
-  }, [setInteractions]);
+  }, [setInteractions, isAuthenticated, authLoading]);
 }

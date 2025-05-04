@@ -74,7 +74,7 @@ export default function OpportunityDetailScreen() {
   
   
   const handleEditOpportunity = () => {
-    router.push(`/oppurutnities/edit/${id}`);
+    router.push(`/opportunities/edit/${id}`);
   };
   
   const handleDeleteOpportunity = () => {

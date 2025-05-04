@@ -51,7 +51,7 @@ export default function EditTaskScreen() {
       if (!id) return;
       
       await taskService.updateTask(id, updatedTask);
-      router.back();
+      router.push(`/(tabs)/tasks`);
     } catch (error) {
       console.error('Error updating task:', error);
       setError('Failed to update task');

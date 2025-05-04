@@ -1,26 +1,24 @@
+// config/firebase.ts
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Replace with your Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyAaPNX0qrh_zsHgVSXpSBMDcbwsta6cYhc",
-  authDomain: "clientconnect-3107a.firebaseapp.com",
-  projectId: "clientconnect-3107a",
-  storageBucket: "clientconnect-3107a.firebasestorage.app",
-  messagingSenderId: "493375465986",
-  appId: "1:493375465986:web:3ff788dbf576479b6f151b",
-  measurementId: "G-VMDHS02F87"
+  apiKey: "AIzaSyDtEzY8t4lbOsQ3gJYvq6GQJBct-opJ7vU",
+  authDomain: "clientconnect-152ee.firebaseapp.com",
+  projectId: "clientconnect-152ee",
+  storageBucket: "clientconnect-152ee.firebasestorage.app",
+  messagingSenderId: "815353874383",
+  appId: "1:815353874383:web:3fa2be81a1b8d9329474ba",
+  measurementId: "G-85ZL9885VH"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase services
+// Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
 
 export default app;

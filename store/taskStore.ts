@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Task } from '@/types';
 import { taskService } from '@/services/firestore';
 import { useEffect } from 'react';
+import { useAuthStore } from '@/store/authStore';
 
 interface TaskState {
   tasks: Task[];
@@ -136,14 +137,24 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 // Set up real-time subscription
 export function useTaskSubscription() {
   const { setTasks } = useTaskStore();
+  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
   
   useEffect(() => {
-    // Subscribe to real-time updates
-    const unsubscribe = taskService.subscribeToTasks((tasks) => {
-      setTasks(tasks);
-    });
+    let unsubscribe: () => void = () => {};
     
-    // Cleanup subscription on unmount
+    // Only subscribe if the user is authenticated
+    if (isAuthenticated && !authLoading) {
+      try {
+        // Subscribe to real-time updates
+        unsubscribe = taskService.subscribeToTasks((tasks) => {
+          setTasks(tasks);
+        });
+      } catch (error) {
+        console.error('Error subscribing to tasks:', error);
+      }
+    }
+    
+    // Cleanup subscription on unmount or when auth state changes
     return () => unsubscribe();
-  }, [setTasks]);
+  }, [setTasks, isAuthenticated, authLoading]);
 }
